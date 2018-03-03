@@ -18,6 +18,7 @@ var xtend = require('xtend');
 exports = module.exports = StrongGlobalize;
 exports.SetRootDir = SetRootDir;
 exports.SetDefaultLanguage = globalize.setDefaultLanguage;
+exports.SetAppLanguages = globalize.setAppLanguages;
 exports.SetPersistentLogging = globalize.setPersistentLogging;
 
 function StrongGlobalize(options) {
@@ -28,10 +29,16 @@ function StrongGlobalize(options) {
     exports.SetRootDir(options);
     options = undefined;
   }
-  if (!global.STRONGLOOP_GLB) globalize.setDefaultLanguage();
+  if (!global.STRONGLOOP_GLB) {
+    globalize.setDefaultLanguage();
+    globalize.setAppLanguages();
+  }
+
   var defaults = {
     language: global.STRONGLOOP_GLB.DEFAULT_LANG,
+    app_languages: global.STRONGLOOP_GLB.APP_LANGS,
   };
+
   this._options = options ? xtend(defaults, options) : defaults;
 }
 
@@ -59,6 +66,7 @@ function SetRootDir(rootDir, options) {
     });
   }
 }
+
 
 StrongGlobalize.prototype.setLanguage = function(lang) {
   lang = helper.isSupportedLanguage(lang) ?
@@ -216,4 +224,21 @@ StrongGlobalize.prototype.silly = function() {
   globalize.loadGlobalize(this._options.language);
   return globalize.rfc5424('silly', arguments, console.log,
     this._options.language);
+};
+
+var sgCache = {};
+StrongGlobalize.prototype.http = function(req) {
+
+  var matchingLang = helper.getLanguageFromRequest(req,
+    this._options.app_languages,
+    this._options.language);
+
+  if (sgCache[matchingLang]) {
+    return sgCache[matchingLang];
+  }
+
+  sgCache[matchingLang] = new StrongGlobalize(this._options);
+  sgCache[matchingLang].setLanguage(matchingLang);
+  return sgCache[matchingLang];
+
 };
